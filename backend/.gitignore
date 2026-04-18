@@ -1,0 +1,27 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Entornos Virtuales ---
+venv/
+.venv/
+env/
+.env
+.env.*
+
+# --- Base de Datos (IMPORTANTE) ---
+*.sql
+*.sqlite
+*.db
+*.dump
+
+# --- IDEs y Logs ---
+.vscode/
+.idea/
+*.log
+
+# --- Credenciales sensibles ---
+keys/
+app/core/*firebase-adminsdk*.json
+

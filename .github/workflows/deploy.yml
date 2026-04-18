@@ -1,0 +1,104 @@
+name: Deploy Fullstack App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      # 2. Copiar archivos al servidor
+      - name: Copiar archivos al servidor
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "."
+          target: "/var/www/stepxstep"
+
+      # 3. Ejecutar Docker en el servidor
+      - name: Ejecutar Docker Compose
+        uses: appleboy/ssh-action@master
+        env:
+          DB_ROOT_PASS: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          DB_NAME: ${{ secrets.MYSQL_DATABASE }}
+          DB_USER: ${{ secrets.MYSQL_USER }}
+          DB_PASS: ${{ secrets.MYSQL_PASSWORD }}
+          DB_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+          AI_PROVIDER: ${{ secrets.AI_PROVIDER }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_TIMEOUT: ${{ secrets.AI_TIMEOUT }}
+          AI_MAX_TOKENS: ${{ secrets.AI_MAX_TOKENS }}
+          AI_TEMPERATURE: ${{ secrets.AI_TEMPERATURE }}
+
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
+          FIREBASE_ENABLED: ${{ secrets.FIREBASE_ENABLED }}
+          FIREBASE_JSON_CONTENT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          envs: DB_ROOT_PASS,DB_NAME,DB_USER,DB_PASS,DB_URL,SECRET_KEY,VITE_API_URL,AI_PROVIDER,AI_MODEL,AI_API_KEY,AI_TIMEOUT,AI_MAX_TOKENS,AI_TEMPERATURE,FIREBASE_ENABLED,FIREBASE_JSON_CONTENT,STRIPE_SECRET_KEY,STRIPE_PUBLISHABLE_KEY,STRIPE_WEBHOOK_SECRET
+          script: |
+            cd /var/www/stepxstep
+
+            # Backend env
+            echo "MYSQL_ROOT_PASSWORD=$DB_ROOT_PASS" > .env
+            echo "MYSQL_DATABASE=$DB_NAME" >> .env
+            echo "MYSQL_USER=$DB_USER" >> .env
+            echo "MYSQL_PASSWORD=$DB_PASS" >> .env
+            echo "DATABASE_URL=$DB_URL" >> .env
+            echo "SECRET_KEY=$SECRET_KEY" >> .env
+            echo "ALGORITHM=HS256" >> .env
+            echo "ACCESS_TOKEN_EXPIRE_MINUTES=1440" >> .env
+
+            echo "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY" >> .env
+            echo "STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY" >> .env
+            echo "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET" >> .env
+            echo "STRIPE_CURRENCY=mxn" >> .env
+            
+            echo "PROJECT_NAME=Step by Step" >> .env
+
+            # IA
+            echo "AI_PROVIDER=$AI_PROVIDER" >> .env
+            echo "AI_MODEL=$AI_MODEL" >> .env
+            echo "AI_API_KEY=$AI_API_KEY" >> .env
+            echo "AI_TIMEOUT=$AI_TIMEOUT" >> .env
+            echo "AI_MAX_TOKENS=$AI_MAX_TOKENS" >> .env
+            echo "AI_TEMPERATURE=$AI_TEMPERATURE" >> .env
+
+            # Firebase
+            echo "FIREBASE_ENABLED=$FIREBASE_ENABLED" >> .env
+            FIREBASE_PATH="backend/keys/firebase-service-account.json"
+            echo "FIREBASE_SERVICE_ACCOUNT_JSON=$FIREBASE_PATH" >> .env
+
+            mkdir -p backend/keys
+            echo "$FIREBASE_JSON_CONTENT" > $FIREBASE_PATH
+
+            # Frontend
+            echo "VITE_API_URL=$VITE_API_URL" > web/.env
+
+            # Docker
+            sudo docker compose down
+            sudo docker compose up -d --build
+
+            # Limpieza
+            sudo docker system prune -f

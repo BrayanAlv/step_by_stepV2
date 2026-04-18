@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+build
+dev-dist
+coverage
+
+# pwa
+sw.js
+workbox-*.js
+
+# config
+vite.config.js
